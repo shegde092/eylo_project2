@@ -1,0 +1,19 @@
+# Simplified requirements compatible with Python 3.13
+
+# Web Framework
+fastapi==0.115.7
+uvicorn[standard]==0.34.0
+
+# No pydantic version lock - use latest compatible
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# Database
+sqlalchemy>=2.0.36
+
+# HTTP Clients
+httpx>=0.28.1
+
+# Utilities
+python-dotenv>=1.0.0
+python-multipart>=0.0.20
