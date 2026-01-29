@@ -69,7 +69,7 @@ async def enqueue_recipe_import(user_id: str, source_url: str, fcm_token: str = 
         jobs = _load_queue()
         jobs.append(job_data)
         _save_queue(jobs)
-        print(f"✓ Job {job_id} added to queue (file-based)")
+        print(f"[OK] Job {job_id} added to queue (file-based)")
     
     return job_id
 
@@ -90,10 +90,12 @@ def dequeue_recipe_import(timeout: int = 5) -> Optional[Dict[str, Any]]:
         return None
     else:
         # Pop from file-based queue
+        print(f"[DEBUG] Checking queue file: {QUEUE_FILE}")
         jobs = _load_queue()
+        print(f"[DEBUG] Found {len(jobs)} jobs in queue")
         if jobs:
             job = jobs.pop(0)
             _save_queue(jobs)
-            print(f"✓ Job {job['job_id']} dequeued from file")
+            print(f"[OK] Job {job['job_id']} dequeued from file")
             return job
         return None
