@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.database import SessionLocal, Recipe, ImportJob
 from app.queue import dequeue_recipe_import
 from app.services.apify_client import apify_client
-from app.services.gemini_extractor import gemini_extractor
+from app.services.openai_extractor import openai_extractor
 from app.services.s3_client import s3_client
 from app.services.fcm_client import fcm_client
 from app.utils import get_instagram_post_type
@@ -54,15 +54,23 @@ class RecipeProcessor:
         import_job = None
         
         try:
-            # Create import job record
-            import_job = ImportJob(
-                id=job_id,
-                user_id=user_id,
-                source_url=source_url,
-                status="processing"
-            )
-            db.add(import_job)
-            db.commit()
+            # Create import job record or get existing
+            import_job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
+            
+            if not import_job:
+                import_job = ImportJob(
+                    id=job_id,
+                    user_id=user_id,
+                    source_url=source_url,
+                    status="processing"
+                )
+                db.add(import_job)
+                db.commit()
+            else:
+                logger.info(f"[{job_id}] Job already exists in DB, resuming...")
+                import_job.status = "processing"
+                import_job.error_message = None
+                db.commit()
             
             # Step 1: Scrape Instagram content
             logger.info(f"[{job_id}] Scraping Instagram...")
@@ -72,13 +80,14 @@ class RecipeProcessor:
                 raise Exception("Failed to scrape Instagram content")
             
             # Step 2: Extract recipe using AI
-            logger.info(f"[{job_id}] Extracting recipe with Gemini AI...")
+            logger.info(f"[{job_id}] Extracting recipe with OpenAI...")
             post_type = get_instagram_post_type(source_url)
             
             if scraped_content.video_url:
                 # Download video temporarily
                 video_path = await self._download_video(scraped_content.video_url)
-                recipe_data = await gemini_extractor.extract_from_video(
+                # OpenAI uses frames, extracted internally by the service from the local video path
+                recipe_data = await openai_extractor.extract_from_video(
                     video_path,
                     scraped_content.caption,
                     scraped_content.author
@@ -87,7 +96,7 @@ class RecipeProcessor:
                 Path(video_path).unlink()
             elif scraped_content.image_urls:
                 # Extract from images
-                recipe_data = await gemini_extractor.extract_from_images(
+                recipe_data = await openai_extractor.extract_from_images(
                     scraped_content.image_urls,
                     scraped_content.caption,
                     scraped_content.author
@@ -158,6 +167,7 @@ class RecipeProcessor:
             logger.info(f"[{job_id}] ✅ Job completed successfully!")
             
         except Exception as e:
+            db.rollback()
             logger.error(f"[{job_id}] ❌ Job failed: {str(e)}")
             
             if import_job:

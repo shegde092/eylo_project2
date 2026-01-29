@@ -35,7 +35,7 @@ class ApifyClient:
                     params={"token": self.api_token},
                     json={
                         "directUrls": [url],
-                        "resultsType": "posts",
+                        "resultsType": "details",
                         "resultsLimit": 1,
                         "addParentData": False
                     }
@@ -44,13 +44,16 @@ class ApifyClient:
                 run_data = run_response.json()
                 run_id = run_data["data"]["id"]
                 
+                print(f"DEBUG: Started Apify run {run_id}")
                 logger.info(f"Started Apify run {run_id} for URL: {url}")
                 
                 # Wait for the run to finish (polling)
                 dataset_id = await self._wait_for_run(client, run_id)
+                print(f"DEBUG: Run finished. Dataset ID: {dataset_id}")
                 
                 # Get the scraped data
                 items = await self._get_dataset_items(client, dataset_id)
+                print(f"DEBUG: Got {len(items)} items from dataset")
                 
                 if not items:
                     logger.warning(f"No data scraped for URL: {url}")
@@ -103,11 +106,21 @@ class ApifyClient:
         # Apify Instagram Scraper returns different structures for different post types
         post_type = item.get("type", "reel")
         
+        # DEBUG: Log keys to debug missing media
+        logger.info(f"Apify Item Keys: {list(item.keys())}")
+        if "videoUrl" not in item:
+            logger.warning(f"videoUrl missing. checking alternatives. video_url: {item.get('video_url')}")
+            
+        # DEBUG: Dump to file
+        import json
+        with open("last_apify_run.json", "w") as f:
+            json.dump(item, f, indent=2)
+        
         return ScrapedContent(
-            video_url=item.get("videoUrl"),
+            video_url=item.get("videoUrl") or item.get("video_url"),
             caption=item.get("caption", ""),
-            thumbnail_url=item.get("displayUrl") or item.get("thumbnailUrl"),
-            author=item.get("ownerUsername", ""),
+            thumbnail_url=item.get("displayUrl") or item.get("thumbnailUrl") or item.get("display_url"),
+            author=item.get("ownerUsername", "") or item.get("owner", {}).get("username", ""),
             post_type=post_type,
             image_urls=item.get("images", []) if post_type == "post" else []
         )
