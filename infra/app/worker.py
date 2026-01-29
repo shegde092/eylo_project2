@@ -95,24 +95,33 @@ class RecipeProcessor:
             else:
                 raise Exception("No video or images found in scraped content")
             
-            # Step 3: Upload media to S3
+            # Step 3: Upload media to S3 (optional - gracefully handle failures)
             logger.info(f"[{job_id}] Uploading media to S3...")
             thumbnail_url = None
             video_url = None
             
-            if scraped_content.thumbnail_url:
-                thumbnail_url = await s3_client.upload_from_url(
-                    scraped_content.thumbnail_url,
-                    f"recipes/{user_id}/{job_id}/thumbnail.jpg",
-                    "image/jpeg"
-                )
+            try:
+                if scraped_content.thumbnail_url:
+                    thumbnail_url = await s3_client.upload_from_url(
+                        scraped_content.thumbnail_url,
+                        f"recipes/{user_id}/{job_id}/thumbnail.jpg",
+                        "image/jpeg"
+                    )
+                    logger.info(f"[{job_id}] Thumbnail uploaded to S3")
+            except Exception as e:
+                logger.warning(f"[{job_id}] Failed to upload thumbnail: {str(e)} (continuing anyway)")
             
-            if scraped_content.video_url:
-                video_url = await s3_client.upload_from_url(
-                    scraped_content.video_url,
-                    f"recipes/{user_id}/{job_id}/video.mp4",
-                    "video/mp4"
-                )
+            try:
+                if scraped_content.video_url:
+                    video_url = await s3_client.upload_from_url(
+                        scraped_content.video_url,
+                        f"recipes/{user_id}/{job_id}/video.mp4",
+                        "video/mp4"
+                    )
+                    logger.info(f"[{job_id}] Video uploaded to S3")
+            except Exception as e:
+                logger.warning(f"[{job_id}] Failed to upload video: {str(e)} (continuing anyway)")
+
             
             # Step 4: Save recipe to database
             logger.info(f"[{job_id}] Saving recipe to database...")
