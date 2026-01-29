@@ -1,15 +1,16 @@
 import json
 import uuid
+import os
 from typing import Dict, Any, Optional
-from collections import deque
+from pathlib import Path
 from app.config import get_settings
 
 settings = get_settings()
 
-# In-memory queue for local testing (when Redis not available)
-_memory_queue = deque()
+# File-based queue for local testing (works across processes!)
+QUEUE_FILE = Path(__file__).parent.parent / "queue_jobs.json"
 
-# Check if we should use Redis or in-memory queue
+# Check if we should use Redis or file-based queue
 USE_REDIS = not settings.redis_url.startswith("memory://")
 
 if USE_REDIS:
@@ -18,11 +19,25 @@ if USE_REDIS:
         redis_client = redis.from_url(settings.redis_url, decode_responses=True)
         redis_client.ping()  # Test connection
     except:
-        print("⚠️  Redis not available, using in-memory queue")
+        print("⚠️  Redis not available, using file-based queue")
         USE_REDIS = False
 
 # Queue name
 RECIPE_QUEUE = "eylo:recipe_import"
+
+
+def _load_queue():
+    """Load jobs from file"""
+    if QUEUE_FILE.exists():
+        with open(QUEUE_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
+
+def _save_queue(jobs):
+    """Save jobs to file"""
+    with open(QUEUE_FILE, 'w') as f:
+        json.dump(jobs, f)
 
 
 async def enqueue_recipe_import(user_id: str, source_url: str, fcm_token: str = None) -> str:
@@ -50,8 +65,11 @@ async def enqueue_recipe_import(user_id: str, source_url: str, fcm_token: str = 
         # Push to Redis list (queue)
         redis_client.rpush(RECIPE_QUEUE, json.dumps(job_data))
     else:
-        # Push to in-memory queue
-        _memory_queue.append(job_data)
+        # Push to file-based queue (works across processes!)
+        jobs = _load_queue()
+        jobs.append(job_data)
+        _save_queue(jobs)
+        print(f"✓ Job {job_id} added to queue (file-based)")
     
     return job_id
 
@@ -71,7 +89,11 @@ def dequeue_recipe_import(timeout: int = 5) -> Optional[Dict[str, Any]]:
             return json.loads(job_json)
         return None
     else:
-        # Pop from in-memory queue
-        if _memory_queue:
-            return _memory_queue.popleft()
+        # Pop from file-based queue
+        jobs = _load_queue()
+        if jobs:
+            job = jobs.pop(0)
+            _save_queue(jobs)
+            print(f"✓ Job {job['job_id']} dequeued from file")
+            return job
         return None
