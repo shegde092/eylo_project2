@@ -8,12 +8,12 @@ cursor = conn.cursor()
 # List all tables
 cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
 tables = cursor.fetchall()
-print("📊 Tables in database:")
+print("Tables in database:")
 for table in tables:
     print(f"  - {table[0]}")
 
 # Check import_jobs table
-print("\n📝 Import Jobs:")
+print("\nImport Jobs:")
 cursor.execute("SELECT id, user_id, source_url, status, created_at FROM import_jobs;")
 jobs = cursor.fetchall()
 if jobs:
@@ -27,7 +27,7 @@ else:
     print("  No jobs found")
 
 # Check recipes table  
-print("\n🍳 Recipes:")
+print("\nRecipes:")
 cursor.execute("SELECT id, title, source_url FROM recipes;")
 recipes = cursor.fetchall()
 if recipes:

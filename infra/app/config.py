@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     # API Keys
     apify_api_token: str
     gemini_api_key: str
+    openai_api_key: str
     fcm_server_key: str
     
     # Database
