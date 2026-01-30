@@ -106,30 +106,34 @@ class RecipeProcessor:
             
             # Step 3: Upload media to S3 (optional - gracefully handle failures)
             logger.info(f"[{job_id}] Uploading media to S3...")
-            thumbnail_url = None
-            video_url = None
+            
+            # Initialize with original URLs as fallback
+            thumbnail_url = scraped_content.thumbnail_url
+            video_url = scraped_content.video_url
             
             try:
                 if scraped_content.thumbnail_url:
-                    thumbnail_url = await s3_client.upload_from_url(
+                    s3_url = await s3_client.upload_from_url(
                         scraped_content.thumbnail_url,
                         f"recipes/{user_id}/{job_id}/thumbnail.jpg",
                         "image/jpeg"
                     )
+                    thumbnail_url = s3_url
                     logger.info(f"[{job_id}] Thumbnail uploaded to S3")
             except Exception as e:
-                logger.warning(f"[{job_id}] Failed to upload thumbnail: {str(e)} (continuing anyway)")
+                logger.warning(f"[{job_id}] Failed to upload thumbnail: {str(e)} (continuing with original URL)")
             
             try:
                 if scraped_content.video_url:
-                    video_url = await s3_client.upload_from_url(
+                    s3_url = await s3_client.upload_from_url(
                         scraped_content.video_url,
                         f"recipes/{user_id}/{job_id}/video.mp4",
                         "video/mp4"
                     )
+                    video_url = s3_url
                     logger.info(f"[{job_id}] Video uploaded to S3")
             except Exception as e:
-                logger.warning(f"[{job_id}] Failed to upload video: {str(e)} (continuing anyway)")
+                logger.warning(f"[{job_id}] Failed to upload video: {str(e)} (continuing with original URL)")
 
             
             # Step 4: Save recipe to database
