@@ -13,6 +13,7 @@ class Ingredient(BaseModel):
 
 class RecipeData(BaseModel):
     """Structured recipe data extracted by AI"""
+    title: str = Field(..., description="Recipe title")
     prep_time_minutes: Optional[int] = Field(None, description="Preparation time")
     cook_time_minutes: Optional[int] = Field(None, description="Cooking time")
     ingredients: List[Ingredient] = Field(..., description="List of ingredients")
