@@ -148,7 +148,7 @@ class OpenAIRecipeExtractor:
 
     def _create_prompt(self, caption: str, author: str) -> str:
         return f"""
-        Analyze this Instagram content (@{author}).
+        Analyze this social media content (Chef/Creator: {author}).
         Caption: "{caption}"
         
         Extract the following JSON structure:

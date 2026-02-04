@@ -9,65 +9,86 @@ settings = get_settings()
 
 
 class ApifyClient:
-    """Client for Apify Instagram Scraper API"""
+    """Client for Apify Scraper APIs (Instagram, YouTube, TikTok)"""
     
     def __init__(self):
         self.api_token = settings.apify_api_token
         self.base_url = "https://api.apify.com/v2"
-        # Using the official Instagram Scraper actor
-        self.actor_id = "shu8hvrXbJbY3Eb9W"
-    
-    async def scrape_instagram_url(self, url: str) -> Optional[ScrapedContent]:
-        """
-        Scrape Instagram content using Apify
         
-        Args:
-            url: Instagram URL (Reel, Post, or TV)
-            
-        Returns:
-            ScrapedContent with video, caption, and metadata
+        # Actor IDs
+        self.actors = {
+            "instagram": "shu8hvrXbJbY3Eb9W",                  # Instagram Scraper
+            "youtube": "jefer/youtube-video-downloader",        # YouTube Downloader (Jefer)
+            "tiktok": "clockworks/tiktok-scraper"               # Clockworks TikTok Scraper
+        }
+    
+    async def scrape_url(self, url: str, platform: str) -> Optional[ScrapedContent]:
         """
+        Scrape content from any supported platform
+        """
+        if platform not in self.actors:
+            raise ValueError(f"Unsupported platform: {platform}")
+            
+        actor_id = self.actors[platform]
+        
         try:
+            # Construct input based on platform
+            run_input = self._get_actor_input(platform, url)
+            
             async with httpx.AsyncClient(timeout=120.0) as client:
                 # Start the actor run
                 run_response = await client.post(
-                    f"{self.base_url}/acts/{self.actor_id}/runs",
+                    f"{self.base_url}/acts/{actor_id}/runs",
                     params={"token": self.api_token},
-                    json={
-                        "directUrls": [url],
-                        "resultsType": "details",
-                        "resultsLimit": 1,
-                        "addParentData": False
-                    }
+                    json=run_input
                 )
                 run_response.raise_for_status()
                 run_data = run_response.json()
                 run_id = run_data["data"]["id"]
                 
-                print(f"DEBUG: Started Apify run {run_id}")
-                logger.info(f"Started Apify run {run_id} for URL: {url}")
+                logger.info(f"Started Apify run {run_id} for {platform}: {url}")
                 
-                # Wait for the run to finish (polling)
+                # Wait for the run to finish
                 dataset_id = await self._wait_for_run(client, run_id)
-                print(f"DEBUG: Run finished. Dataset ID: {dataset_id}")
                 
                 # Get the scraped data
                 items = await self._get_dataset_items(client, dataset_id)
-                print(f"DEBUG: Got {len(items)} items from dataset")
                 
                 if not items:
-                    logger.warning(f"No data scraped for URL: {url}")
+                    logger.warning(f"No data scraped for {platform} URL: {url}")
                     return None
                 
                 # Parse the first item
                 item = items[0]
-                return self._parse_scraped_item(item)
+                return self._parse_scraped_item(item, platform)
                 
         except Exception as e:
-            logger.error(f"Apify scraping failed for {url}: {str(e)}")
+            logger.error(f"Apify scraping failed for {url} ({platform}): {str(e)}")
             raise
-    
-    async def _wait_for_run(self, client: httpx.AsyncClient, run_id: str, max_wait: int = 120) -> str:
+
+    def _get_actor_input(self, platform: str, url: str) -> dict:
+        """Get actor-specific input parameters"""
+        if platform == "instagram":
+            return {
+                "directUrls": [url],
+                "resultsType": "details",
+                "resultsLimit": 1,
+                "addParentData": False
+            }
+        elif platform == "youtube":
+            return {
+                "videos": [url],
+                "preferredQuality": "1080p",
+                "preferredFormat": "mp4"
+            }
+        elif platform == "tiktok":
+            return {
+                "startUrls": [{"url": url}],
+                "resultsPerPage": 1
+            }
+        return {}
+
+    async def _wait_for_run(self, client: httpx.AsyncClient, run_id: str, max_wait: int = 180) -> str:
         """Poll the run status until it's finished"""
         import asyncio
         
@@ -101,28 +122,45 @@ class ApifyClient:
         response.raise_for_status()
         return response.json()
     
-    def _parse_scraped_item(self, item: dict) -> ScrapedContent:
-        """Parse Apify response into ScrapedContent schema"""
-        # Apify Instagram Scraper returns different structures for different post types
-        post_type = item.get("type", "reel")
+    def _parse_scraped_item(self, item: dict, platform: str) -> ScrapedContent:
+        """Parse Apify response based on platform"""
         
-        # DEBUG: Log keys to debug missing media
-        logger.info(f"Apify Item Keys: {list(item.keys())}")
-        if "videoUrl" not in item:
-            logger.warning(f"videoUrl missing. checking alternatives. video_url: {item.get('video_url')}")
+        # DEBUG: Log keys
+        logger.info(f"Apify Item Keys ({platform}): {list(item.keys())}")
+        
+        if platform == "instagram":
+            post_type = item.get("type", "reel")
+            return ScrapedContent(
+                video_url=item.get("videoUrl") or item.get("video_url"),
+                caption=item.get("caption", ""),
+                thumbnail_url=item.get("displayUrl") or item.get("thumbnailUrl") or item.get("display_url"),
+                author=item.get("ownerUsername", "") or item.get("owner", {}).get("username", ""),
+                post_type=post_type,
+                image_urls=item.get("images", []) if post_type == "post" else []
+            )
             
-        # DEBUG: Dump to file
-        import json
-        with open("last_apify_run.json", "w") as f:
-            json.dump(item, f, indent=2)
-        
+        elif platform == "youtube":
+            return ScrapedContent(
+                video_url=item.get("downloadUrl") or item.get("url"), # Downloader usually returns downloadUrl
+                caption=item.get("title", "") + "\n" + item.get("description", ""),
+                thumbnail_url=item.get("thumbnailUrl"),
+                author=item.get("channelName", "") or item.get("viewCount", ""), # Fallback for metadata
+                post_type="youtube_video",
+                image_urls=[]
+            )
+            
+        elif platform == "tiktok":
+            return ScrapedContent(
+                video_url=item.get("videoMeta", {}).get("downloadAddr"), # Clockworks specific
+                caption=item.get("text", ""),
+                thumbnail_url=item.get("imageUrl"),
+                author=item.get("authorMeta", {}).get("name", ""),
+                post_type="tiktok_video",
+                image_urls=[]
+            )
+            
         return ScrapedContent(
-            video_url=item.get("videoUrl") or item.get("video_url"),
-            caption=item.get("caption", ""),
-            thumbnail_url=item.get("displayUrl") or item.get("thumbnailUrl") or item.get("display_url"),
-            author=item.get("ownerUsername", "") or item.get("owner", {}).get("username", ""),
-            post_type=post_type,
-            image_urls=item.get("images", []) if post_type == "post" else []
+            video_url="", caption="", thumbnail_url="", author="", post_type="unknown", image_urls=[]
         )
 
 

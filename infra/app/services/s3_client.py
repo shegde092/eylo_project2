@@ -12,13 +12,18 @@ class S3Client:
     """Client for AWS S3 storage"""
     
     def __init__(self):
-        self.s3 = boto3.client(
-            's3',
-            region_name=settings.aws_region,
-            aws_access_key_id=settings.aws_access_key_id,
-            aws_secret_access_key=settings.aws_secret_access_key
-        )
         self.bucket = settings.aws_s3_bucket
+        
+        if not settings.test_mode:
+            self.s3 = boto3.client(
+                's3',
+                region_name=settings.aws_region,
+                aws_access_key_id=settings.aws_access_key_id,
+                aws_secret_access_key=settings.aws_secret_access_key
+            )
+        else:
+            self.s3 = None
+            logger.info("S3Client initialized in TEST MODE (Mock S3)")
     
     async def upload_file(
         self,
@@ -37,6 +42,10 @@ class S3Client:
         Returns:
             Public URL of uploaded file
         """
+        if settings.test_mode:
+            logger.info(f"MOCK Upload to S3: {file_path} -> {s3_key}")
+            return f"https://mock-s3.local/{self.bucket}/{s3_key}"
+
         try:
             self.s3.upload_file(
                 file_path,
@@ -73,6 +82,10 @@ class S3Client:
         Returns:
             Public URL of uploaded file
         """
+        if settings.test_mode:
+            logger.info(f"MOCK Upload from URL: {url} -> {s3_key}")
+            return url  # Return original URL in test mode
+
         import httpx
         import tempfile
         

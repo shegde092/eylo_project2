@@ -1,6 +1,8 @@
 import json
 import uuid
 import os
+import time
+import random
 from typing import Dict, Any, Optional
 from pathlib import Path
 from app.config import get_settings
@@ -26,18 +28,38 @@ if USE_REDIS:
 RECIPE_QUEUE = "eylo:recipe_import"
 
 
-def _load_queue():
-    """Load jobs from file"""
-    if QUEUE_FILE.exists():
-        with open(QUEUE_FILE, 'r') as f:
-            return json.load(f)
+def _load_queue(retries=5):
+    """Load jobs from file with retries"""
+    if not QUEUE_FILE.exists():
+        return []
+        
+    for attempt in range(retries):
+        try:
+            with open(QUEUE_FILE, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    return []
+                return json.loads(content)
+        except (PermissionError, json.JSONDecodeError):
+            if attempt < retries - 1:
+                time.sleep(0.1 + random.random() * 0.2)  # Random sleep 100-300ms
+            else:
+                return []
     return []
 
 
-def _save_queue(jobs):
-    """Save jobs to file"""
-    with open(QUEUE_FILE, 'w') as f:
-        json.dump(jobs, f)
+def _save_queue(jobs, retries=5):
+    """Save jobs to file with retries"""
+    for attempt in range(retries):
+        try:
+            with open(QUEUE_FILE, 'w') as f:
+                json.dump(jobs, f)
+            return
+        except PermissionError:
+            if attempt < retries - 1:
+                time.sleep(0.1 + random.random() * 0.2)
+            else:
+                print(f"[ERROR] Failed to save queue after {retries} attempts")
 
 
 async def enqueue_recipe_import(user_id: str, source_url: str, fcm_token: str = None) -> str:
@@ -89,13 +111,15 @@ def dequeue_recipe_import(timeout: int = 5) -> Optional[Dict[str, Any]]:
             return json.loads(job_json)
         return None
     else:
-        # Pop from file-based queue
-        print(f"[DEBUG] Checking queue file: {QUEUE_FILE}")
-        jobs = _load_queue()
-        print(f"[DEBUG] Found {len(jobs)} jobs in queue")
-        if jobs:
-            job = jobs.pop(0)
-            _save_queue(jobs)
-            print(f"[OK] Job {job['job_id']} dequeued from file")
-            return job
+        # Pop from file-based queue with polling
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            jobs = _load_queue()
+            if jobs:
+                job = jobs.pop(0)
+                _save_queue(jobs)
+                print(f"[OK] Job {job['job_id']} dequeued from file")
+                return job
+            # Wait a bit before checking again
+            time.sleep(0.5)
         return None

@@ -60,6 +60,12 @@
             </intent-filter>
         </service>
 
+        <activity
+            android:name=".RecipeDetailActivity"
+            android:exported="false"
+            android:label="@string/title_activity_main"
+            android:parentActivityName=".MainActivity" />
+
     </application>
 
 </manifest>

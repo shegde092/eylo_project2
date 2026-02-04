@@ -1,151 +1,77 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
 import logging
+import uuid
+from typing import List
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-from app.config import get_settings
-from app.database import get_db, init_db, Recipe
+from app.database import SessionLocal, engine, Base, Recipe, ImportJob
 from app.schemas import RecipeImportRequest, RecipeImportResponse, RecipeResponse
 from app.queue import enqueue_recipe_import
-from app.utils import is_instagram_url
+from app.config import get_settings
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 settings = get_settings()
 
-# Create FastAPI app
-app = FastAPI(
-    title="Eylo Recipe Import API",
-    description="Backend API for importing recipes from Instagram",
-    version="1.0.0"
-)
+app = FastAPI(title="Eylo Recipe Import API")
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your mobile app domains
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    logger.info("Initializing database...")
-    init_db()
-    logger.info("✅ Database initialized")
-
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @app.get("/")
-async def root():
-    """Health check endpoint"""
-    return {"status": "ok", "service": "eylo-recipe-import-api"}
-
+def read_root():
+    return {"message": "Welcome to Eylo Recipe Import API"}
 
 @app.get("/health")
-async def health_check():
-    """Detailed health check"""
-    return {
-        "status": "healthy",
-        "version": "1.0.0",
-        "database": "connected"
-    }
-
+def health_check():
+    return {"status": "ok"}
 
 @app.post("/import/recipe", response_model=RecipeImportResponse)
-async def import_recipe(
-    request: RecipeImportRequest,
-    db: Session = Depends(get_db),
-    # TODO: Add authentication with user_id = Depends(get_current_user)
-):
+async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_db)):
     """
-    Import a recipe from Instagram URL
-    
-    This endpoint:
-    1. Validates the Instagram URL
-    2. Enqueues a background job
-    3. Returns immediately (Fire and Forget pattern)
-    
-    The actual scraping, AI extraction, and DB save happens asynchronously.
-    User receives a push notification when complete.
+    Submit a URL for recipe extraction.
+    Returns a job ID to track progress.
     """
+    # Generate a dummy user ID for now (no auth yet)
+    # In a real app, this would come from the JWT token
+    user_id = str(uuid.uuid4())
     
-    # For now, using a mock user_id (replace with actual auth)
-    user_id = "00000000-0000-0000-0000-000000000001"
+    # 1. Enqueue the job
+    job_id = await enqueue_recipe_import(
+        user_id=user_id,
+        source_url=str(request.url),
+        fcm_token=request.fcm_token
+    )
     
-    # Validate URL
-    if not is_instagram_url(str(request.url)):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid Instagram URL. Only Instagram Reels, Posts, and TV videos are supported."
-        )
+    # 2. Create initial job record
+    # Although worker handles this, creating it here ensures immediate feedback if we query DB
+    import_job = ImportJob(
+        id=job_id,
+        user_id=user_id,
+        source_url=str(request.url),
+        status="queued"
+    )
+    db.add(import_job)
+    db.commit()
     
-    # Enqueue job
-    try:
-        job_id = await enqueue_recipe_import(
-            user_id=user_id,
-            source_url=str(request.url),
-            fcm_token=request.fcm_token
-        )
-        
-        logger.info(f"Enqueued recipe import job {job_id} for URL: {request.url}")
-        
-        return RecipeImportResponse(
-            job_id=job_id,
-            status="processing",
-            message="Recipe import started. You'll receive a notification when it's ready."
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to enqueue job: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to start recipe import"
-        )
+    return RecipeImportResponse(
+        job_id=job_id,
+        status="queued",
+        message="Recipe import started"
+    )
 
-
-@app.get("/recipes/{recipe_id}", response_model=RecipeResponse)
-async def get_recipe(recipe_id: str, db: Session = Depends(get_db)):
-    """
-    Get a recipe by ID
-    
-    Used when user taps the push notification to view the imported recipe
-    """
-    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
-    
-    if not recipe:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Recipe not found"
-        )
-    
-    return recipe
-
-
-@app.get("/recipes", response_model=list[RecipeResponse])
-async def list_recipes(
-    skip: int = 0,
-    limit: int = 20,
-    db: Session = Depends(get_db)
-):
-    """
-    List all recipes for a user
-    
-    TODO: Filter by authenticated user_id
-    """
-    recipes = db.query(Recipe).offset(skip).limit(limit).all()
+@app.get("/recipes", response_model=List[RecipeResponse])
+def list_recipes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """List all saved recipes"""
+    recipes = db.query(Recipe).order_by(Recipe.created_at.desc()).offset(skip).limit(limit).all()
     return recipes
-
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
-        reload=True
-    )
+    uvicorn.run(app, host="0.0.0.0", port=8000)

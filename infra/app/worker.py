@@ -3,17 +3,18 @@ import logging
 import tempfile
 import httpx
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import SessionLocal, Recipe, ImportJob
 from app.queue import dequeue_recipe_import
 from app.services.apify_client import apify_client
+from app.services.youtube_client import youtube_client
 from app.services.openai_extractor import openai_extractor
 from app.services.s3_client import s3_client
 from app.services.fcm_client import fcm_client
-from app.utils import get_instagram_post_type
+from app.utils import get_post_type, get_platform
 
 # Configure logging
 logging.basicConfig(
@@ -72,16 +73,26 @@ class RecipeProcessor:
                 import_job.error_message = None
                 db.commit()
             
-            # Step 1: Scrape Instagram content
-            logger.info(f"[{job_id}] Scraping Instagram...")
-            scraped_content = await self._scrape_with_retry(source_url)
+            # Step 1: Scrape content
+            logger.info(f"[{job_id}] Scraping content from {source_url}...")
+            platform = get_platform(source_url)
+            
+            if platform == 'unknown':
+                 raise Exception(f"Unsupported platform for URL: {source_url}")
+                 
+            # Scrape content based on platform
+            if platform == 'youtube':
+                scraped_content = await youtube_client.scrape_url(source_url)
+            else:
+                # Instagram / TikTok
+                scraped_content = await self._scrape_with_retry(source_url, platform)
             
             if not scraped_content:
-                raise Exception("Failed to scrape Instagram content")
+                raise Exception(f"Failed to scrape content from {platform}")
             
             # Step 2: Extract recipe using AI
             logger.info(f"[{job_id}] Extracting recipe with OpenAI...")
-            post_type = get_instagram_post_type(source_url)
+            post_type = get_post_type(source_url)
             
             if scraped_content.video_url:
                 # Download video temporarily
@@ -102,6 +113,9 @@ class RecipeProcessor:
                     scraped_content.author
                 )
             else:
+                # Some platforms (like TikTok/YouTube) might not give a direct download link immediately readable by OpenCV
+                # For now, we rely on OpenAI text extraction if video fails or we upgrade the extractor
+                # But let's keep the existing flow and just fail if no media
                 raise Exception("No video or images found in scraped content")
             
             # Step 3: Upload media to S3 (optional - gracefully handle failures)
@@ -141,9 +155,10 @@ class RecipeProcessor:
             recipe = Recipe(
                 user_id=user_id,
                 title=recipe_data.title if hasattr(recipe_data, 'title') else "Untitled Recipe",
+                description=scraped_content.caption,  # Save original post caption
                 source_url=source_url,
                 source_type=post_type,
-                data=recipe_data.dict(),
+                data=recipe_data.model_dump(),
                 thumbnail_url=thumbnail_url,
                 video_url=video_url
             )
@@ -154,7 +169,7 @@ class RecipeProcessor:
             # Update import job
             import_job.status = "completed"
             import_job.recipe_id = recipe.id
-            import_job.completed_at = datetime.utcnow()
+            import_job.completed_at = datetime.now(timezone.utc)
             db.commit()
             
             logger.info(f"[{job_id}] ✅ Recipe saved: {recipe.title} (ID: {recipe.id})")
@@ -177,17 +192,17 @@ class RecipeProcessor:
             if import_job:
                 import_job.status = "failed"
                 import_job.error_message = str(e)
-                import_job.completed_at = datetime.utcnow()
+                import_job.completed_at = datetime.now(timezone.utc)
                 db.commit()
         
         finally:
             db.close()
     
-    async def _scrape_with_retry(self, url: str):
+    async def _scrape_with_retry(self, url: str, platform: str):
         """Scrape with retry logic"""
         for attempt in range(self.retry_attempts):
             try:
-                return await apify_client.scrape_instagram_url(url)
+                return await apify_client.scrape_url(url, platform)
             except Exception as e:
                 if attempt < self.retry_attempts - 1:
                     logger.warning(f"Scraping attempt {attempt + 1} failed, retrying...")
@@ -220,6 +235,9 @@ class RecipeProcessor:
                 if job_data:
                     # Process asynchronously
                     await self.process_job(job_data)
+                else:
+                    # No job found, wait before checking again
+                    await asyncio.sleep(2)
                 
             except KeyboardInterrupt:
                 logger.info("Worker shutting down...")

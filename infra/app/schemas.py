@@ -39,6 +39,7 @@ class RecipeResponse(BaseModel):
     id: UUID
     user_id: UUID
     title: str
+    description: Optional[str]  # Original post caption/description
     source_url: str
     source_type: str
     data: RecipeData
