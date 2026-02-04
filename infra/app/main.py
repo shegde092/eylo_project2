@@ -42,6 +42,29 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
     # In a real app, this would come from the JWT token
     user_id = str(uuid.uuid4())
     
+    # Check if this URL was already imported
+    existing_recipe = db.query(Recipe).filter(Recipe.source_url == str(request.url)).first()
+    if existing_recipe:
+        # Return success with the existing recipe's job ID (if available)
+        existing_job = db.query(ImportJob).filter(ImportJob.recipe_id == existing_recipe.id).first()
+        return RecipeImportResponse(
+            job_id=existing_job.id if existing_job else str(uuid.uuid4()),
+            status="completed",
+            message="Recipe already exists! No need to import again."
+        )
+    
+    # Check if there's already a pending job for this URL
+    existing_job = db.query(ImportJob).filter(
+        ImportJob.source_url == str(request.url),
+        ImportJob.status.in_(["queued", "processing"])
+    ).first()
+    if existing_job:
+        return RecipeImportResponse(
+            job_id=existing_job.id,
+            status=existing_job.status,
+            message="This URL is already being processed."
+        )
+    
     # 1. Enqueue the job
     job_id = await enqueue_recipe_import(
         user_id=user_id,
