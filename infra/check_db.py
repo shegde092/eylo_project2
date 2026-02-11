@@ -28,11 +28,16 @@ else:
 
 # Check recipes table  
 print("\nRecipes:")
-cursor.execute("SELECT id, title, source_url FROM recipes;")
+cursor.execute("SELECT id, title, source_url, created_at, imported_at FROM recipes;")
 recipes = cursor.fetchall()
 if recipes:
     for recipe in recipes:
-        print(f"  - {recipe[1]} ({recipe[0]})")
+        print(f"  Recipe: {recipe[1]}")
+        print(f"    ID: {recipe[0]}")
+        print(f"    URL: {recipe[2]}")
+        print(f"    Created: {recipe[3]}")
+        print(f"    Imported: {recipe[4]}")
+        print()
 else:
     print("  No recipes found")
 
