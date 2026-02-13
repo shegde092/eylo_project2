@@ -53,7 +53,7 @@ class ScrapedContent(BaseModel):
     """Data returned from Apify scraper"""
     video_url: Optional[str] = Field(None, description="Direct link to video MP4")
     caption: str = Field("", description="Post caption/description")
-    thumbnail_url: Optional[str] = Field(None, description="Thumbnail image URL")
+    # removed thumbnail_url
     author: str = Field("", description="Instagram username")
     post_type: str = Field("reel", description="Type: reel, post, or carousel")
     image_urls: List[str] = Field(default_factory=list, description="For posts with images")

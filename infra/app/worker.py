@@ -12,7 +12,6 @@ from app.queue import dequeue_recipe_import
 from app.services.apify_client import apify_client
 from app.services.youtube_client import youtube_client
 from app.services.openai_extractor import openai_extractor
-from app.services.s3_client import s3_client
 from app.services.fcm_client import fcm_client
 from app.utils import get_post_type, get_platform
 
@@ -49,7 +48,6 @@ class RecipeProcessor:
         source_url = job_data["source_url"]
         fcm_token = job_data.get("fcm_token")
         
-        logger.info(f"Processing job {job_id} for user {user_id}: {source_url}")
         
         db = SessionLocal()
         import_job = None
@@ -74,7 +72,6 @@ class RecipeProcessor:
                 db.commit()
             
             # Step 1: Scrape content
-            logger.info(f"[{job_id}] Scraping content from {source_url}...")
             platform = get_platform(source_url)
             
             if platform == 'unknown':
@@ -91,7 +88,6 @@ class RecipeProcessor:
                 raise Exception(f"Failed to scrape content from {platform}")
             
             # Step 2: Extract recipe using AI
-            logger.info(f"[{job_id}] Extracting recipe with OpenAI...")
             post_type = get_post_type(source_url)
             
             if scraped_content.video_url:
@@ -118,12 +114,7 @@ class RecipeProcessor:
                 # But let's keep the existing flow and just fail if no media
                 raise Exception("No video or images found in scraped content")
             
-            # Step 3: Skipped (Media upload removed)
-            logger.info(f"[{job_id}] Skipped media upload as requested.")
-
-            
-            # Step 4: Save recipe to database
-            logger.info(f"[{job_id}] Saving recipe to database...")
+            # Step 3: Save recipe to database
             recipe = Recipe(
                 user_id="dummy_user",  # Hardcoded as requested
                 title=recipe_data.title if hasattr(recipe_data, 'title') else "Untitled Recipe",
@@ -141,18 +132,7 @@ class RecipeProcessor:
             import_job.completed_at = datetime.now(timezone.utc)
             db.commit()
             
-            logger.info(f"[{job_id}] ✅ Recipe saved: {recipe.title} (ID: {recipe.id})")
-            
-            # Step 5: Send push notification
-            if fcm_token:
-                logger.info(f"[{job_id}] Sending push notification...")
-                await fcm_client.send_recipe_ready_notification(
-                    fcm_token,
-                    str(recipe.id),
-                    recipe.title
-                )
-            
-            logger.info(f"[{job_id}] ✅ Job completed successfully!")
+            logger.info(f"[{job_id}] Completed: {recipe.title}")
             
         except Exception as e:
             db.rollback()

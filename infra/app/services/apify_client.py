@@ -133,7 +133,7 @@ class ApifyClient:
             return ScrapedContent(
                 video_url=item.get("videoUrl") or item.get("video_url"),
                 caption=item.get("caption", ""),
-                thumbnail_url=item.get("displayUrl") or item.get("thumbnailUrl") or item.get("display_url"),
+                # removed thumbnail_url
                 author=item.get("ownerUsername", "") or item.get("owner", {}).get("username", ""),
                 post_type=post_type,
                 image_urls=item.get("images", []) if post_type == "post" else []
@@ -143,7 +143,7 @@ class ApifyClient:
             return ScrapedContent(
                 video_url=item.get("downloadUrl") or item.get("url"), # Downloader usually returns downloadUrl
                 caption=item.get("title", "") + "\n" + item.get("description", ""),
-                thumbnail_url=item.get("thumbnailUrl"),
+                # removed thumbnail_url
                 author=item.get("channelName", "") or item.get("viewCount", ""), # Fallback for metadata
                 post_type="youtube_video",
                 image_urls=[]
@@ -153,14 +153,14 @@ class ApifyClient:
             return ScrapedContent(
                 video_url=item.get("videoMeta", {}).get("downloadAddr"), # Clockworks specific
                 caption=item.get("text", ""),
-                thumbnail_url=item.get("imageUrl"),
+                # removed thumbnail_url
                 author=item.get("authorMeta", {}).get("name", ""),
                 post_type="tiktok_video",
                 image_urls=[]
             )
             
         return ScrapedContent(
-            video_url="", caption="", thumbnail_url="", author="", post_type="unknown", image_urls=[]
+            video_url="", caption="", author="", post_type="unknown", image_urls=[]
         )
 
 
