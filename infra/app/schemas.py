@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl, Field
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 from uuid import UUID
 
@@ -7,7 +7,7 @@ from uuid import UUID
 class Ingredient(BaseModel):
     """Single ingredient with quantity and unit"""
     item: str = Field(..., description="Ingredient name")
-    quantity: str = Field(..., description="Amount (can be numeric or text like '2-3')")
+    quantity: Union[str, int, float] = Field(..., description="Amount (can be numeric or text like '2-3')")
     unit: str = Field(..., description="Unit of measurement (g, cup, tsp, etc.)")
 
 

@@ -19,7 +19,7 @@ class ApifyClient:
         self.actors = {
             "instagram": "shu8hvrXbJbY3Eb9W",                  # Instagram Scraper
             "youtube": "jefer/youtube-video-downloader",        # YouTube Downloader (Jefer)
-            "tiktok": "clockworks/tiktok-scraper"               # Clockworks TikTok Scraper
+            "tiktok": "OtzYfK1ndEGdwWFKQ"                     # Clockworks Free TikTok Scraper (Unique ID)
         }
     
     async def scrape_url(self, url: str, platform: str) -> Optional[ScrapedContent]:
@@ -83,8 +83,11 @@ class ApifyClient:
             }
         elif platform == "tiktok":
             return {
-                "startUrls": [{"url": url}],
-                "resultsPerPage": 1
+                "postURLs": [url],
+                "shouldDownloadCovers": False,
+                "shouldDownloadSlideshowImages": False,
+                "shouldDownloadSubtitles": False,
+                "shouldDownloadVideos": True,
             }
         return {}
 
@@ -151,10 +154,10 @@ class ApifyClient:
             
         elif platform == "tiktok":
             return ScrapedContent(
-                video_url=item.get("videoMeta", {}).get("downloadAddr"), # Clockworks specific
+                video_url=item.get("videoMeta", {}).get("downloadAddr"), 
                 caption=item.get("text", ""),
                 # removed thumbnail_url
-                author=item.get("authorMeta", {}).get("name", ""),
+                author=item.get("authorMeta", {}).get("name", "") or item.get("authorMeta", {}).get("nickName", ""),
                 post_type="tiktok_video",
                 image_urls=[]
             )

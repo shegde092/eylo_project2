@@ -49,7 +49,6 @@ Job Queue (queue.py)
 Worker Process (worker.py)
    ├→ Scraper (apify_client.py, youtube_client.py)
    ├→ AI Extraction (openai_extractor.py)
-   ├→ S3 Upload (s3_client.py)
    ├→ Database (database.py)
    └→ Push Notification (fcm_client.py)
 ```
@@ -92,7 +91,6 @@ eylo_project2/
 │   │       ├── 📄 apify_client.py    # ⭐ Instagram/TikTok scraper
 │   │       ├── 📄 youtube_client.py  # ⭐ YouTube scraper (yt-dlp)
 │   │       ├── 📄 openai_extractor.py # ⭐ AI recipe extraction (PRIMARY)
-│   │       ├── 📄 s3_client.py       # AWS S3 uploads
 │   │       └── 📄 fcm_client.py      # Push notifications
 │   │
 │   ├── 📁 migrations/                # Database migrations (unused)

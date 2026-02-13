@@ -14,7 +14,6 @@ Backend infrastructure for importing recipes from Instagram via Share Sheet inte
 - **Services**:
   - **Apify Client**: Instagram/TikTok scraping with proxy rotation
   - **OpenAI Extractor**: AI-powered recipe extraction from video/images
-  - **S3 Client**: Media storage
   - **FCM Client**: Push notifications
 
 ---
@@ -24,7 +23,7 @@ Backend infrastructure for importing recipes from Instagram via Share Sheet inte
 ### 1. Prerequisites
 
 - Python 3.11+
-- API keys for: Apify, OpenAI, AWS S3, Firebase
+- API keys for: Apify, OpenAI, Firebase
 - Optional: Docker & Docker Compose (for production/Redis)
 
 ### 2. Setup (Local Development)
@@ -76,7 +75,7 @@ python -m app.worker
 
 3. **Verify Processing**:
    - Check Worker logs for "Processing job..."
-   - Use `check_db.py` (if available) or inspect database directly
+   - Use Supabase dashboard or inspect database directly
 
 ---
 
@@ -89,9 +88,7 @@ python -m app.worker
 | `APIFY_API_TOKEN` | Apify API key for scraping |
 | `OPENAI_API_KEY` | OpenAI API key for extraction |
 | `FCM_SERVER_KEY` | Firebase Cloud Messaging key |
-| `AWS_S3_BUCKET` | AWS S3 Bucket Name |
-| `AWS_ACCESS_KEY_ID` | AWS Credentials |
-| `DATABASE_URL` | PostgreSQL connection string (or SQLite path) |
+| `DATABASE_URL` | Supabase/PostgreSQL connection string |
 | `REDIS_URL` | Redis connection string (or `memory://`) |
 
 ### Redis Setup (Recommended for Prod)

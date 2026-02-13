@@ -23,10 +23,9 @@ Instagram App → Share Sheet → Eylo Extension → API Gateway → Queue
                                                               ↓
                                               ┌─────────────────────────┐
                                               │ 1. Scrape (Apify)       │
-                                              │ 2. Extract AI (Gemini)  │
-                                              │ 3. Upload (S3)          │
-                                              │ 4. Save (PostgreSQL)    │
-                                              │ 5. Notify (FCM)         │
+                                              │ 2. Extract AI (OpenAI)  │
+                                              │ 3. Save (Supabase/PG)   │
+                                              │ 4. Notify (FCM)         │
                                               └─────────────────────────┘
                                                               ↓
                                               Push Notification → User's Phone
@@ -57,7 +56,6 @@ eylo_project2/
 │       └── 📁 services/        # External Integrations
 │           │- 📄 apify_client.py     # Instagram/TikTok Scraping
 │           │- 📄 openai_extractor.py # AI Recipe Extraction
-│           │- 📄 s3_client.py        # AWS S3 Storage
 │           │- 📄 fcm_client.py       # Push Notifications
 │
 └── 📁 mobile/                  # Mobile Client Code
@@ -72,7 +70,7 @@ eylo_project2/
 - **Backend**: Docker, Python 3.11+
 - **iOS**: Xcode 15+, macOS
 - **Android**: Android Studio, JDK 17+
-- **API Keys**: Apify, Google Gemini AI, AWS S3, Firebase
+- **API Keys**: Apify, OpenAI, Firebase, Supabase
 
 ### 1. Start the Backend
 
