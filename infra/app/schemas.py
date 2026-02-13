@@ -36,15 +36,12 @@ class RecipeImportResponse(BaseModel):
 
 class RecipeResponse(BaseModel):
     """Complete recipe response"""
-    id: UUID
-    user_id: UUID
+    id: str
+    user_id: str
     title: str
-    description: Optional[str]  # Original post caption/description
     source_url: str
     source_type: str
     data: RecipeData
-    thumbnail_url: Optional[str]
-    video_url: Optional[str]
     created_at: datetime
     imported_at: datetime
     

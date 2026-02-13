@@ -36,24 +36,33 @@ Instagram App → Share Sheet → Eylo Extension → API Gateway → Queue
 
 ```
 eylo_project2/
-├── infra/                    # Backend (FastAPI + Worker)
-│   ├── app/
-│   │   ├── main.py          # API endpoints
-│   │   ├── worker.py        # Background processor
-│   │   └── services/        # Apify, Gemini, S3, FCM
-│   ├── docker-compose.yml   # Local development
-│   └── README.md            # Backend setup guide
+│- 📄 README.md                 # Main project documentation
+│- 📄 explain.md                # Complete technical reference
 │
-├── mobile/
-│   ├── ios/                 # iOS Share Extension
-│   │   ├── EyloShare/       # Share Extension code
-│   │   └── README.md        # iOS setup guide
+├── 📁 infra/                   # Backend Infrastructure
+│   │- 📄 .env                  # Environment variables (gitignored)
+│   │- 📄 requirements.txt      # Python dependencies
+│   │- 📄 docker-compose.yml    # Docker services config
+│   │- 📄 README.md             # Backend documentation
 │   │
-│   └── android/             # Android Share Intent
-│       ├── app/src/main/    # Share Activity + Worker
-│       └── README.md        # Android setup guide
+│   └── 📁 app/                 # Application Code
+│       │- 📄 main.py           # API Server (FastAPI)
+│       │- 📄 worker.py         # Background Worker
+│       │- 📄 config.py         # App Configuration
+│       │- 📄 database.py       # Database Models
+│       │- 📄 schemas.py        # Pydantic Schemas
+│       │- 📄 queue.py          # Job Queue Logic
+│       │- 📄 utils.py          # Helper Functions
+│       │
+│       └── 📁 services/        # External Integrations
+│           │- 📄 apify_client.py     # Instagram/TikTok Scraping
+│           │- 📄 openai_extractor.py # AI Recipe Extraction
+│           │- 📄 s3_client.py        # AWS S3 Storage
+│           │- 📄 fcm_client.py       # Push Notifications
 │
-└── README.md                # This file
+└── 📁 mobile/                  # Mobile Client Code
+    ├── 📁 ios/                 # iOS Share Extension
+    └── 📁 android/             # Android Share Intent
 ```
 
 ## 🚀 Quick Start

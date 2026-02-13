@@ -26,12 +26,9 @@ class Recipe(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String, index=True)
     title = Column(String)
-    description = Column(String, nullable=True)  # Original post caption/description
     source_url = Column(String)
     source_type = Column(String)
     data = Column(JSON)  # Stores the full recipe JSON from AI
-    thumbnail_url = Column(String, nullable=True)
-    video_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     imported_at = Column(DateTime, default=datetime.utcnow)
 
