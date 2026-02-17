@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     
     # API Keys
     apify_api_token: str
-    gemini_api_key: str
     openai_api_key: str
     fcm_server_key: str
     
@@ -16,12 +15,6 @@ class Settings(BaseSettings):
     
     # Queue
     redis_url: str
-    
-    # Storage
-    aws_s3_bucket: str
-    aws_region: str = "us-east-1"
-    aws_access_key_id: str
-    aws_secret_access_key: str
     
     # API Settings
     api_host: str = "0.0.0.0"
@@ -39,6 +32,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
 
 @lru_cache()
