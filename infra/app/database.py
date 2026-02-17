@@ -14,7 +14,12 @@ if settings.database_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 
 engine = create_engine(
-    settings.database_url, connect_args=connect_args
+    settings.database_url,
+    connect_args=connect_args,
+    pool_pre_ping=True,  # Check connection validity before using
+    pool_recycle=300,    # Recycle connections every 5 minutes
+    pool_size=10,        # Default pool size
+    max_overflow=20      # Allow temporary extra connections
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

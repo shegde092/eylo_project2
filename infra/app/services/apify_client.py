@@ -131,15 +131,28 @@ class ApifyClient:
         # DEBUG: Log keys
         logger.info(f"Apify Item Keys ({platform}): {list(item.keys())}")
         
+        if "error" in item:
+            error_msg = item.get("errorDescription") or item.get("error")
+            raise Exception(f"Apify Scraper Error: {error_msg}")
+
         if platform == "instagram":
             post_type = item.get("type", "reel")
+            
+            # Basic fields
+            video_url = item.get("videoUrl") or item.get("video_url") or item.get("displayUrl")
+            
+            # Handle images (sometimes it's 'images' list, sometimes 'image' string)
+            images = item.get("images", [])
+            if not images and item.get("image"):
+                images = [item.get("image")]
+                
             return ScrapedContent(
-                video_url=item.get("videoUrl") or item.get("video_url"),
+                video_url=video_url,
                 caption=item.get("caption", ""),
                 # removed thumbnail_url
                 author=item.get("ownerUsername", "") or item.get("owner", {}).get("username", ""),
                 post_type=post_type,
-                image_urls=item.get("images", []) if post_type == "post" else []
+                image_urls=images
             )
             
         elif platform == "youtube":

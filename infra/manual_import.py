@@ -14,7 +14,7 @@ def import_recipe():
         response = requests.post(
             "http://localhost:8000/import/recipe",
             json={"url": url},
-            timeout=10
+            timeout=60
         )
         
         if response.status_code == 200:
