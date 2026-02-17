@@ -38,10 +38,9 @@ class RecipeProcessor:
         
         Flow:
         1. Scrape Instagram content (Apify)
-        2. Extract recipe data (Gemini AI)
-        3. Upload media to S3
-        4. Save recipe to database
-        5. Send push notification
+        2. Extract recipe data (OpenAI GPT-4o-mini)
+        3. Save recipe to database
+        4. Send push notification
         """
         job_id = job_data["job_id"]
         user_id = job_data["user_id"]
