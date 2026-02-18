@@ -22,21 +22,18 @@ if USE_REDIS:
         print("⚠️ Redis unavailable, using file queue")
         USE_REDIS = False
 
-async def enqueue_recipe_import(user_id: str, source_url: str) -> str:
+async def enqueue_recipe_import(job_id: str, user_id: str, source_url: str) -> str:
     """Add a recipe import job to the queue"""
-    job_id = str(uuid.uuid4())
     job_data = {
-        "job_id": job_id, 
-        "user_id": user_id, 
-        "source_url": source_url, 
-
+        "job_id": job_id,
+        "user_id": user_id,
+        "source_url": source_url,
         "created_at": time.time()
     }
     
     if USE_REDIS:
         redis_client.lpush(RECIPE_QUEUE, json.dumps(job_data))
     else:
-        # Minimal file queue
         try:
             current_jobs = json.loads(QUEUE_FILE.read_text()) if QUEUE_FILE.exists() else []
         except:

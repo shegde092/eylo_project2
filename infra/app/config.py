@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     # API Keys
     apify_api_token: str
     openai_api_key: str
+    instagram_session_id: str = ""  # Optional: Instagram sessionid cookie for scraping login-gated reels
 
     
     # Database

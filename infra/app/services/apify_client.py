@@ -55,16 +55,28 @@ class ApifyClient:
 
     def _parse(self, item: dict, platform: str) -> ScrapedContent:
         if "error" in item:
-            raise Exception(f"Apify error: {item.get('errorDescription') or item['error']}")
+            error_msg = item.get("errorDescription") or item["error"]
+            # "Restricted access" means partial data — log warning but continue with what we have
+            if "restricted" in error_msg.lower() or "partial" in error_msg.lower():
+                import logging
+                logging.getLogger(__name__).warning(f"Apify partial data warning: {error_msg}")
+            else:
+                raise Exception(f"Apify error: {error_msg}")
 
         if platform == "instagram":
             images = item.get("images") or ([item["image"]] if item.get("image") else [])
             if not images:
                 images = [x for x in [item.get("displayUrl"), item.get("thumbnailUrl")] if x]
+            caption = item.get("caption", "")
+            author = item.get("ownerUsername") or item.get("owner", {}).get("username", "")
+            import logging
+            # downloadedVideo = pre-downloaded MP4 on Apify servers (no CDN blocks, no region restrictions)
+            video_url = item.get("downloadedVideo") or item.get("videoUrl") or item.get("displayUrl")
+            logging.getLogger(__name__).info(f"Instagram scraped — author: {author}, caption length: {len(caption)}, images: {len(images)}, has_downloaded_video: {bool(item.get('downloadedVideo'))}")
             return ScrapedContent(
-                video_url=item.get("videoUrl") or item.get("displayUrl"),
-                caption=item.get("caption", ""),
-                author=item.get("ownerUsername") or item.get("owner", {}).get("username", ""),
+                video_url=video_url,
+                caption=caption,
+                author=author,
                 post_type=item.get("type", "reel"),
                 image_urls=images,
             )

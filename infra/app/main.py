@@ -65,14 +65,8 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
             message="This URL is already being processed."
         )
     
-    # 1. Enqueue the job
-    job_id = await enqueue_recipe_import(
-        user_id=user_id,
-        source_url=str(request.url),
-    )
-    
-    # 2. Create initial job record
-    # Although worker handles this, creating it here ensures immediate feedback if we query DB
+    # 1. Create the job record FIRST (acts as a lock to prevent duplicates)
+    job_id = str(uuid.uuid4())
     import_job = ImportJob(
         id=job_id,
         user_id=user_id,
@@ -81,7 +75,14 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
     )
     db.add(import_job)
     db.commit()
-    
+
+    # 2. Now enqueue it
+    await enqueue_recipe_import(
+        job_id=job_id,
+        user_id=user_id,
+        source_url=str(request.url),
+    )
+
     return RecipeImportResponse(
         job_id=job_id,
         status="queued",

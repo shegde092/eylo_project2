@@ -19,7 +19,9 @@ class ScrapingTool(BaseTool):
         if platform == "youtube":
             content = await youtube_client.scrape_url(url)
         elif platform in ["instagram", "tiktok"]:
-            content = await apify_client.scrape_url(url, platform)
+            # Clean URL to avoid issues with query params
+            clean_url = url.split("?")[0]
+            content = await apify_client.scrape_url(clean_url, platform)
         else:
             raise ValueError(f"Unsupported platform: {platform}")
 
