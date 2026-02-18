@@ -42,8 +42,13 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
     # In a real app, this would come from the JWT token
     user_id = str(uuid.uuid4())
     
+    # Clean URL for Instagram/TikTok to avoid duplicates with query params
+    url_str = str(request.url)
+    if "instagram.com" in url_str or "tiktok.com" in url_str:
+        url_str = url_str.split("?")[0]
+    
     # Check if this URL was already imported from database
-    existing_recipe = db.query(Recipe).filter(Recipe.source_url == str(request.url)).first()
+    existing_recipe = db.query(Recipe).filter(Recipe.source_url == url_str).first()
     if existing_recipe:
         # Return success with the existing recipe's job ID (if available)
         existing_job = db.query(ImportJob).filter(ImportJob.recipe_id == existing_recipe.id).first()
@@ -55,7 +60,7 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
     
     # Check if there's already a pending job for this URL
     existing_job = db.query(ImportJob).filter(
-        ImportJob.source_url == str(request.url),
+        ImportJob.source_url == url_str,
         ImportJob.status.in_(["queued", "processing"])
     ).first()
     if existing_job:
@@ -70,7 +75,7 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
     import_job = ImportJob(
         id=job_id,
         user_id=user_id,
-        source_url=str(request.url),
+        source_url=url_str,
         status="queued"
     )
     db.add(import_job)
@@ -80,7 +85,7 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
     await enqueue_recipe_import(
         job_id=job_id,
         user_id=user_id,
-        source_url=str(request.url),
+        source_url=url_str,
     )
 
     return RecipeImportResponse(
