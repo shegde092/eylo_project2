@@ -24,7 +24,7 @@ class RecipeData(BaseModel):
 class RecipeImportRequest(BaseModel):
     """Request to import a recipe from a URL"""
     url: HttpUrl = Field(..., description="Instagram URL (Reel, Post, or Picture)")
-    fcm_token: Optional[str] = Field(None, description="Firebase Cloud Messaging token for push notifications")
+
 
 
 class RecipeImportResponse(BaseModel):

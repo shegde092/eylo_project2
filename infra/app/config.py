@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # API Keys
     apify_api_token: str
     openai_api_key: str
-    fcm_server_key: str
+
     
     # Database
     database_url: str

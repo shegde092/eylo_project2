@@ -145,6 +145,12 @@ class ApifyClient:
             images = item.get("images", [])
             if not images and item.get("image"):
                 images = [item.get("image")]
+            
+            # Fallback: if no images found (e.g. Reel), use displayUrl or thumbnailUrl as image
+            if not images:
+                fallback_image = item.get("displayUrl") or item.get("thumbnailUrl")
+                if fallback_image:
+                    images = [fallback_image]
                 
             return ScrapedContent(
                 video_url=video_url,

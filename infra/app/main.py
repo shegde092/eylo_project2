@@ -42,7 +42,7 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
     # In a real app, this would come from the JWT token
     user_id = str(uuid.uuid4())
     
-    # Check if this URL was already imported
+    # Check if this URL was already imported from database
     existing_recipe = db.query(Recipe).filter(Recipe.source_url == str(request.url)).first()
     if existing_recipe:
         # Return success with the existing recipe's job ID (if available)
@@ -69,7 +69,6 @@ async def import_recipe(request: RecipeImportRequest, db: Session = Depends(get_
     job_id = await enqueue_recipe_import(
         user_id=user_id,
         source_url=str(request.url),
-        fcm_token=request.fcm_token
     )
     
     # 2. Create initial job record

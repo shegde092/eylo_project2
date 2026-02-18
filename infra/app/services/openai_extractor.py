@@ -18,7 +18,7 @@ class OpenAIRecipeExtractor:
     """Extract structured recipe data using OpenAI GPT-4o-mini"""
     
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
+        self.client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=120.0)
         self.model = "gpt-4o-mini"
     
     def _encode_image(self, image_path):
@@ -164,9 +164,10 @@ class OpenAIRecipeExtractor:
         }}
         
         Rules:
-        1. If ingredients are missing quantities, estimate them from visual cues.
-        2. Infer missing steps if the visual flow implies them.
-        3. If it's not a recipe, return a best-guess recipe for the dish shown.
+        1. If ingredients are missing quantities, estimate them from visual cues ONLY if confident.
+        2. Infer missing steps ONLY if the visual flow clearly implies them.
+        3. STRICTLY DO NOT GUESS. If the content does not contain a recipe (e.g. just a picture of food with no instructions), return a JSON with empty fields or an error message in the title.
+        4. If no recipe is found, set "title" to "NO_RECIPE_FOUND".
         """
 
     def _parse_response(self, content: str) -> RecipeData:
