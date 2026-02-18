@@ -12,7 +12,7 @@ from app.queue import dequeue_recipe_import
 from app.services.apify_client import apify_client
 from app.services.youtube_client import youtube_client
 from app.services.openai_extractor import openai_extractor
-from app.services.fcm_client import fcm_client
+# from app.services.fcm_client import fcm_client
 from app.utils import get_post_type, get_platform
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -119,7 +119,6 @@ async def process_job(job_data: dict, retry_attempts: int, retry_delay: int):
 
 async def run():
     logger.info("🚀 Recipe worker started")
-    fcm_client.initialize()
 
     attempts = settings.retry_attempts
     delay = settings.retry_delay_seconds
