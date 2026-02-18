@@ -1,7 +1,5 @@
-
 import logging
-import asyncio
-from typing import Optional
+import traceback
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
@@ -12,44 +10,44 @@ from app.agent.tools.extraction import ExtractionTool
 
 logger = logging.getLogger(__name__)
 
+
 class RecipeAgent:
-    """
-    Intelligent Agent for Recipe Import.
-    Orchestrates tools (Scraper -> Extractor -> DB) to complete the job.
-    """
-    
+    """Orchestrates: Scrape -> Extract -> Save"""
+
     def __init__(self):
         self.scraper = ScrapingTool()
         self.extractor = ExtractionTool()
-    
+
     async def process_job(self, job_data: dict):
-        """Main entry point for processing a job"""
         job_id = job_data["job_id"]
         source_url = job_data["source_url"]
         user_id = job_data["user_id"]
-        
+
         logger.info(f"Agent starting job {job_id} for {source_url}")
-        
+
         db: Session = SessionLocal()
-        import_job = None
-        
+        job = None
+
         try:
-            # 1. Update Job Status
-            import_job = self._update_job_status(db, job_id, user_id, source_url, "processing")
-            
-            # 2. Tool: Scrape Content
-            logger.info("Agent: invoking Scraper Tool...")
-            scraped_content = await self.scraper.execute(source_url)
-            
-            # 3. Tool: Extract Recipe
-            logger.info("Agent: invoking Extractor Tool...")
-            recipe_data = await self.extractor.execute(scraped_content)
-            
-            # 4. Save to Database
-            logger.info("Agent: Saving results...")
+            # Create/update job record
+            job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
+            if not job:
+                job = ImportJob(id=job_id, user_id=user_id, source_url=source_url, status="processing")
+                db.add(job)
+            else:
+                job.status = "processing"
+            db.commit()
+
+            # Step 1: Scrape
+            scraped = await self.scraper.execute(source_url)
+
+            # Step 2: Extract
+            recipe_data = await self.extractor.execute(scraped)
+
+            # Step 3: Save recipe
             recipe = Recipe(
                 user_id=user_id,
-                title=getattr(recipe_data, 'title', "Untitled Recipe"),
+                title=recipe_data.title or "Untitled Recipe",
                 source_url=source_url,
                 source_type=get_post_type(source_url),
                 data=recipe_data.model_dump()
@@ -57,35 +55,21 @@ class RecipeAgent:
             db.add(recipe)
             db.commit()
             db.refresh(recipe)
-            
-            # 5. Complete Job
-            import_job.status = "completed"
-            import_job.recipe_id = recipe.id
-            import_job.completed_at = datetime.now(timezone.utc)
+
+            # Mark job complete
+            job.status = "completed"
+            job.recipe_id = recipe.id
+            job.completed_at = datetime.now(timezone.utc)
             db.commit()
-            
-            logger.info(f"Agent successfully completed job {job_id}")
-            
+
+            logger.info(f"Job {job_id} completed: {recipe_data.title}")
+
         except Exception as e:
-            import traceback
-            logger.error(f"Agent failed job {job_id}: {e}")
-            logger.error(traceback.format_exc())
-            if import_job:
-                import_job.status = "failed"
-                import_job.error_message = str(e)
-                import_job.completed_at = datetime.now(timezone.utc)
+            logger.error(f"Job {job_id} failed: {e}\n{traceback.format_exc()}")
+            if job:
+                job.status = "failed"
+                job.error_message = str(e)
+                job.completed_at = datetime.now(timezone.utc)
                 db.commit()
         finally:
             db.close()
-
-    def _update_job_status(self, db, job_id, user_id, url, status):
-        """Helper to create or update job record"""
-        job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
-        if not job:
-            job = ImportJob(id=job_id, user_id=user_id, source_url=url, status=status)
-            db.add(job)
-        else:
-            job.status = status
-            job.error_message = None
-        db.commit()
-        return job
