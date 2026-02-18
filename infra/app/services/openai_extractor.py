@@ -27,8 +27,10 @@ Return this JSON:
 }}
 
 Rules:
-- Only extract what is clearly shown or written. Do NOT guess.
-- If no recipe is found, set title to "NO_RECIPE_FOUND".
+- Analyze the video frames carefully. Describe the visual steps performed by the chef.
+- Even if text/captions are missing, infer the recipe process from the actions shown.
+- Do your best to identify ingredients visually if they are not listed.
+- Only return "NO_RECIPE_FOUND" if the video is completely unrelated to cooking/food.
 """
 
 
@@ -53,8 +55,27 @@ class OpenAIRecipeExtractor:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": [{"type": "text", "text": RECIPE_PROMPT.format(caption=caption, author=author)}, *images]},
         ]
+        
+        # Debug logging
+        logger.info(f"Sending request to OpenAI model={self.model}")
+        
+        # PRINT TO TERMINAL (User Request)
+        print("\n=== OPENAI PROMPT ===")
+        print(f"--- System Prompt ---\n{SYSTEM_PROMPT}\n")
+        print(f"--- User Prompt ---\n{RECIPE_PROMPT.format(caption=caption, author=author)}")
+        print(f"[Plus {len(images)} images]")
+        print("=====================\n")
+        
         resp = await self.client.chat.completions.create(model=self.model, messages=messages, response_format={"type": "json_object"}, max_tokens=2000)
-        return self._parse(resp.choices[0].message.content)
+        
+        content = resp.choices[0].message.content
+        
+        # PRINT TO TERMINAL (User Request)
+        print("\n=== OPENAI RESPONSE ===")
+        print(content)
+        print("=======================\n")
+        
+        return self._parse(content)
 
     def _extract_frames(self, video_path: str, max_frames: int = 20) -> list[str]:
         video = cv2.VideoCapture(video_path)
@@ -70,6 +91,7 @@ class OpenAIRecipeExtractor:
                 if max(w, h) > 512:
                     scale = 512 / max(w, h)
                     frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+                
                 _, buf = cv2.imencode(".jpg", frame)
                 frames.append(base64.b64encode(buf).decode())
             count += 1

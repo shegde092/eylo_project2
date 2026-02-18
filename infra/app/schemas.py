@@ -57,3 +57,4 @@ class ScrapedContent(BaseModel):
     author: str = Field("", description="Instagram username")
     post_type: str = Field("reel", description="Type: reel, post, or carousel")
     image_urls: List[str] = Field(default_factory=list, description="For posts with images")
+    duration: Optional[float] = Field(None, description="Video duration in seconds")

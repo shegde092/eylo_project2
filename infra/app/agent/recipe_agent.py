@@ -41,6 +41,10 @@ class RecipeAgent:
             # Step 1: Scrape
             scraped = await self.scraper.execute(source_url)
 
+            # Check duration limit (90 seconds)
+            if scraped.duration and scraped.duration > 90:
+                raise ValueError(f"Video is too long ({scraped.duration}s). Max allowed is 90s.")
+
             # Step 2: Extract
             recipe_data = await self.extractor.execute(scraped)
 

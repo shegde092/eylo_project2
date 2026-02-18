@@ -14,13 +14,22 @@ class YouTubeClient:
             info = ydl.extract_info(url, download=False)
         if not info:
             raise Exception(f"yt-dlp returned no info for {url}")
-        return ScrapedContent(
+        
+        content = ScrapedContent(
             video_url=info.get("url"),
             caption=f"{info.get('title', '')}\n{info.get('description', '')}",
             author=info.get("uploader", ""),
             post_type="youtube_video",
             image_urls=[],
+            duration=info.get("duration"),
         )
+        
+        # Print for debugging as requested
+        print("\n=== YOUTUBE SCRAPED DATA ===")
+        print(content.model_dump_json(indent=2))
+        print("============================\n")
+        
+        return content
 
 
 youtube_client = YouTubeClient()

@@ -63,6 +63,9 @@ class ApifyClient:
             else:
                 raise Exception(f"Apify error: {error_msg}")
 
+        # Variable to hold content
+        content = None
+
         if platform == "instagram":
             images = item.get("images") or ([item["image"]] if item.get("image") else [])
             if not images:
@@ -73,24 +76,35 @@ class ApifyClient:
             # downloadedVideo = pre-downloaded MP4 on Apify servers (no CDN blocks, no region restrictions)
             video_url = item.get("downloadedVideo") or item.get("videoUrl") or item.get("displayUrl")
             logging.getLogger(__name__).info(f"Instagram scraped — author: {author}, caption length: {len(caption)}, images: {len(images)}, has_downloaded_video: {bool(item.get('downloadedVideo'))}")
-            return ScrapedContent(
+            
+            content = ScrapedContent(
                 video_url=video_url,
                 caption=caption,
                 author=author,
                 post_type=item.get("type", "reel"),
                 image_urls=images,
+                duration=item.get("videoDuration"),
             )
 
-        if platform == "tiktok":
-            return ScrapedContent(
+        elif platform == "tiktok":
+            content = ScrapedContent(
                 video_url=item.get("videoMeta", {}).get("downloadAddr"),
                 caption=item.get("text", ""),
                 author=item.get("authorMeta", {}).get("name") or item.get("authorMeta", {}).get("nickName", ""),
                 post_type="tiktok_video",
                 image_urls=[],
+                duration=item.get("videoMeta", {}).get("duration"),
             )
-
-        raise ValueError(f"Unknown platform: {platform}")
+            
+        else:
+            raise ValueError(f"Unknown platform: {platform}")
+            
+        # PRINT TO TERMINAL (User Request)
+        print(f"\n=== {platform.upper()} SCRAPED DATA ===")
+        print(content.model_dump_json(indent=2))
+        print("===============================\n")
+        
+        return content
 
 
 apify_client = ApifyClient()
