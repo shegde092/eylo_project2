@@ -1,8 +1,26 @@
+from typing import Dict, Any, Optional
+import json
+import time
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, ImportJob
-from datetime import datetime
+from app.config import get_settings
 
-# ... (Redis setup remains) ...
+settings = get_settings()
+
+RECIPE_QUEUE = "eylo:recipe_import"
+
+# Check for Redis availability
+USE_REDIS = not settings.redis_url.startswith("memory://")
+if USE_REDIS:
+    try:
+        import redis
+        redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+        redis_client.ping()
+    except Exception:
+        print("⚠️ Redis unavailable, using DB queue")
+        USE_REDIS = False
+else:
+    redis_client = None
 
 async def enqueue_recipe_import(job_id: str, user_id: str, source_url: str) -> str:
     """Add a recipe import job to the queue"""
@@ -13,7 +31,7 @@ async def enqueue_recipe_import(job_id: str, user_id: str, source_url: str) -> s
         "created_at": time.time()
     }
     
-    if USE_REDIS:
+    if USE_REDIS and redis_client:
         redis_client.lpush(RECIPE_QUEUE, json.dumps(job_data))
     
     # If using DB Queue (no Redis), the job is already inserted in 'queued' status by main.py
@@ -23,7 +41,7 @@ async def enqueue_recipe_import(job_id: str, user_id: str, source_url: str) -> s
 
 def dequeue_recipe_import() -> Optional[Dict[str, Any]]:
     """Get next job from queue"""
-    if USE_REDIS:
+    if USE_REDIS and redis_client:
         item = redis_client.rpop(RECIPE_QUEUE)
         return json.loads(item) if item else None
     
@@ -36,17 +54,6 @@ def dequeue_recipe_import() -> Optional[Dict[str, Any]]:
         job = db.query(ImportJob).filter(ImportJob.status == "queued").order_by(ImportJob.created_at.asc()).first()
         
         if job:
-            # We don't mark it as "processing" here because the agent/worker does that immediately
-            # But to avoid picking it up again instantly by another worker, we SHOULD mark it here 
-            # OR rely on the worker to update it quickly. 
-            # The safer bet for a queue pop is to mark it "processing" right now.
-            
-            # HOWEVER, Agent.process_job also updates status. 
-            # If we update it here, Agent might overwrite or be fine.
-            # Let's check Agent logic: 
-            # "job = db.query... if not job: create else: job.status = 'processing'"
-            # So it's safe to mark it here.
-            
             job.status = "processing"
             db.commit()
             

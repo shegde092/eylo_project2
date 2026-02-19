@@ -14,7 +14,18 @@ Backend service for extracting recipes from social media (Instagram, TikTok, You
 
 ## Setup
 
-1.  **Clone and Install Dependencies**
+1.  **Create and Activate Virtual Environment**
+    ```bash
+    # Windows
+    python -m venv venv
+    .\venv\Scripts\activate
+
+    # Linux/Mac
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+
+2.  **Install Dependencies**
     ```bash
     pip install -r requirements.txt
     ```
@@ -32,7 +43,7 @@ Backend service for extracting recipes from social media (Instagram, TikTok, You
 ### 1. Start the API Server
 The API handles incoming requests and manages the database.
 ```bash
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
 API Docs available at: `http://localhost:8000/docs`
 
@@ -56,3 +67,6 @@ Enter a URL (e.g., Instagram Reel) when prompted.
     - `queue.py`: Queue logic (Redis or DB polling).
     - `agent/`: AI and Scraping logic.
 - `manual_import.py`: CLI tool for testing.
+
+## Detailed Documentation
+For a deep dive into the code flow and file structure, please read [explain.md](explain.md).
